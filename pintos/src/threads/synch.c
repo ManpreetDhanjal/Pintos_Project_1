@@ -50,6 +50,25 @@ sema_init (struct semaphore *sema, unsigned value)
   list_init (&sema->waiters);
 }
 
+void
+sema_down_with_compare (struct semaphore *sema) 
+{
+	printf("%s\n", "in sema down with compare");
+  enum intr_level old_level;
+
+  ASSERT (sema != NULL);
+  ASSERT (!intr_context ());
+
+  old_level = intr_disable ();
+  if (sema->value <= 0) 
+    {
+      list_insert_ordered (&sema->waiters, &thread_current ()->elem,
+                     (list_less_func*)&compare_thread, NULL);
+      thread_block ();
+    }
+  sema->value--;
+  intr_set_level (old_level);
+}
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 

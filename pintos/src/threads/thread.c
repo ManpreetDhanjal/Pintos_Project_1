@@ -578,6 +578,15 @@ allocate_tid (void)
 
   return tid;
 }
+
+/* sort method for thread */
+bool
+compare_thread(struct list_elem* first, struct list_elem* second, void* AUX)
+{
+	struct thread *first_t = list_entry(first, struct thread, allelem);
+	struct thread *second_t = list_entry(second, struct thread, allelem);
+	return first_t->sleep_time < second_t->sleep_time;
+}
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
