@@ -581,10 +581,10 @@ allocate_tid (void)
 
 /* sort method for thread */
 bool
-compare_thread(struct list_elem* first, struct list_elem* second, void* AUX)
+compare_thread(struct list_elem* first, struct list_elem* second, void* AUX UNUSED)
 {
-	struct thread *first_t = list_entry(first, struct thread, allelem);
-	struct thread *second_t = list_entry(second, struct thread, allelem);
+	struct thread *first_t = list_entry(first, struct thread, elem);
+	struct thread *second_t = list_entry(second, struct thread, elem);
 	return first_t->sleep_time < second_t->sleep_time;
 }
 

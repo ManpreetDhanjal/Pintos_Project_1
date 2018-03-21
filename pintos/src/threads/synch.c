@@ -60,7 +60,7 @@ sema_down_with_compare (struct semaphore *sema)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (sema->value <= 0) 
+  while (sema->value == 0) 
     {
       list_insert_ordered (&sema->waiters, &thread_current ()->elem,
                      (list_less_func*)&compare_thread, NULL);

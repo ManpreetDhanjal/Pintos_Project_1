@@ -95,14 +95,12 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-
-printf("%s:%"PRId64"\n", "timer_sleep", ticks);
- // if(ticks > 0){
-	  int64_t sleep_time = start + ticks;
-	  thread_current()->sleep_time = sleep_time;
-	  printf("%"PRId64"\n",thread_current()->sleep_time);
-	  sema_down_with_compare(&timer_sema);
-  //}
+	printf("start:%"PRId64" timer_sleep:%"PRId64"\n", start, ticks);
+	if(ticks > 0){
+		  int64_t sleep_time = start + ticks;
+		  thread_current()->sleep_time = sleep_time;
+		  sema_down_with_compare(&timer_sema);
+	}
   /*
   while (timer_elapsed (start) < ticks) 
     thread_yield ();
@@ -183,14 +181,16 @@ timer_print_stats (void)
 void
 wake_up_thread(){
 	struct list* waiters = &(timer_sema.waiters);
-        printf("%zd",list_size(waiters));
-	if(waiters != NULL){
-		printf("%s", "wake_up_thread");
-		struct thread* t = list_entry(list_begin(waiters), struct thread, allelem);
-		while(waiters != NULL && t != NULL && t->sleep_time <= timer_ticks()){
+	if(waiters != NULL && list_empty(waiters) == false){
+		
+		struct thread* t = list_entry(list_begin(waiters), struct thread, elem);
+		while(t != NULL && t->sleep_time <= timer_ticks()){
 			sema_up(&timer_sema);
 			waiters = &(timer_sema.waiters);
-			t = list_entry(list_begin(waiters), struct thread, allelem);	
+			if(list_empty(waiters)==true){
+				break;
+			}
+			t = list_entry(list_begin(waiters), struct thread, elem);	
 		}
 	}
 
