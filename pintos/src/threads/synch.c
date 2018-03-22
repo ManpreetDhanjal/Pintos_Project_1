@@ -243,17 +243,15 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
   
   
-  printf("Lock holder priority ::: %d\n",lock->holder->priority );
-  printf("thread current priority :::: %d\n",thread_current()->tid );
+  // printf("Lock holder priority ::: %d\n",lock->holder->priority );
+  // printf("thread current priority :::: %d\n",thread_current()->tid );
   
-  if(lock->holder->priority < thread_current()->priority){
+  if(lock->holder->priority>=0 && lock->holder->priority < thread_current()->priority){
     int priority = lock->holder->priority;
     lock->holder->origPriority = priority; 
     lock->holder->priority = thread_current()->priority;
-    printf("Lock holder tid %d\n",lock->holder->tid );
-    update_lock_hold_priority(lock->holder->tid,lock->holder);
-    
-
+    // sprintf("Lock holder tid %d\n",lock->holder->tid );
+    update_lock_hold_priority(lock->holder);
   }
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();

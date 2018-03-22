@@ -603,13 +603,15 @@ compare_thread(struct list_elem* first, struct list_elem* second, void* AUX UNUS
 }
 
 void 
-update_lock_hold_priority(tid_t lock_holder_tid,struct thread *lock_holder){
+update_lock_hold_priority(struct thread *lock_holder){
   struct list_elem *e;
+  struct thread* t;
+  if(list_empty(&ready_list) == true) return;
   for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)){
-      struct thread* t = list_entry(e, struct thread, elem);
-      if(t->tid == lock_holder_tid){
+      t = list_entry(e, struct thread, elem);
+      if(t->tid == lock_holder->tid){
         list_remove(&t->allelem);
-        printf("LOCK HOLDER ID IS :::: %d\n",lock_holder_tid );
+        printf("LOCK HOLDER ID IS :::: %d\n",lock_holder->tid );
         list_insert_ordered (&ready_list, &lock_holder->elem,(list_less_func*)&compare_priority, NULL);
         break;
       }
