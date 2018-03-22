@@ -237,7 +237,9 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem,
+                     (list_less_func*)&compare_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -307,8 +309,11 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+  if (cur != idle_thread) {
+     //list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem,(list_less_func*)&compare_priority, NULL);
+  }
+   
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -463,6 +468,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->origPriority = -1;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -579,6 +585,14 @@ allocate_tid (void)
   return tid;
 }
 
+bool
+compare_priority(struct list_elem* first, struct list_elem* second, void* AUX UNUSED)
+{
+  struct thread *first_t = list_entry(first, struct thread, elem);
+  struct thread *second_t = list_entry(second, struct thread, elem);
+  return (first_t->priority >= second_t->priority);
+}
+
 /* sort method for thread */
 bool
 compare_thread(struct list_elem* first, struct list_elem* second, void* AUX UNUSED)
@@ -586,6 +600,20 @@ compare_thread(struct list_elem* first, struct list_elem* second, void* AUX UNUS
 	struct thread *first_t = list_entry(first, struct thread, elem);
 	struct thread *second_t = list_entry(second, struct thread, elem);
 	return (first_t->sleep_time == second_t->sleep_time)?(first_t->priority >= second_t->priority):(first_t->sleep_time <= second_t->sleep_time);
+}
+
+void 
+update_lock_hold_priority(tid_t lock_holder_tid,struct thread *lock_holder){
+  struct list_elem *e;
+  for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)){
+      struct thread* t = list_entry(e, struct thread, elem);
+      if(t->tid == lock_holder_tid){
+        list_remove(&t->allelem);
+        printf("LOCK HOLDER ID IS :::: %d\n",lock_holder_tid );
+        list_insert_ordered (&ready_list, &lock_holder->elem,(list_less_func*)&compare_priority, NULL);
+        break;
+      }
+    }
 }
 
 /* Offset of `stack' member within `struct thread'.

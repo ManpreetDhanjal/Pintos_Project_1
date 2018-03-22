@@ -91,7 +91,8 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      list_insert_ordered (&sema->waiters, &thread_current()->elem,(list_less_func*)&compare_priority, NULL);
+      //list_push_back (&sema->waiters, &thread_current ()->elem);
       thread_block ();
     }
   sema->value--;
@@ -134,11 +135,11 @@ sema_up_with_compare (struct semaphore *sema, int64_t ticks)
   old_level = intr_disable ();
 
   if(!list_empty(&sema->waiters)){
-	while(!list_empty(&sema->waiters) && list_entry(list_begin(&sema->waiters), struct thread, elem)->sleep_time <= ticks){
-		t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
-		thread_unblock(t);
-		sema->value++;
-	}
+  	while(!list_empty(&sema->waiters) && list_entry(list_begin(&sema->waiters), struct thread, elem)->sleep_time <= ticks){
+  		t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
+  		thread_unblock(t);
+  		sema->value++;
+  	}
 	
   }
    intr_set_level(old_level);
@@ -240,9 +241,25 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
+  
+  
+  printf("Lock holder priority ::: %d\n",lock->holder->priority );
+  printf("thread current priority :::: %d\n",thread_current()->tid );
+  
+  if(lock->holder->priority < thread_current()->priority){
+    int priority = lock->holder->priority;
+    lock->holder->origPriority = priority; 
+    lock->holder->priority = thread_current()->priority;
+    printf("Lock holder tid %d\n",lock->holder->tid );
+    update_lock_hold_priority(lock->holder->tid,lock->holder);
+    
 
+  }
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  
+  
+  
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -275,7 +292,10 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
-
+  if(thread_current()->origPriority != -1){
+    thread_current()->priority = thread_current()->origPriority ;
+    thread_current()->origPriority  = -1;
+  }
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
