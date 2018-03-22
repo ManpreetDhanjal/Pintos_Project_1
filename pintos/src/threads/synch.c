@@ -246,7 +246,7 @@ lock_acquire (struct lock *lock)
   // printf("Lock holder priority ::: %d\n",lock->holder->priority );
   // printf("thread current priority :::: %d\n",thread_current()->tid );
   
-  if(lock->holder->priority>=0 && lock->holder->priority < thread_current()->priority){
+  if(lock->holder!=NULL && lock->holder->priority>0 && lock->holder->priority < thread_current()->priority){
     int priority = lock->holder->priority;
     lock->holder->origPriority = priority; 
     lock->holder->priority = thread_current()->priority;
@@ -290,10 +290,10 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
-  if(thread_current()->origPriority != -1){
-    thread_current()->priority = thread_current()->origPriority ;
-    thread_current()->origPriority  = -1;
-  }
+  // if(thread_current()->origPriority != -1){
+  //   thread_current()->priority = thread_current()->origPriority ;
+  //   thread_current()->origPriority  = -1;
+  // }
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }

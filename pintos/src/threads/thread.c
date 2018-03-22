@@ -590,7 +590,7 @@ compare_priority(struct list_elem* first, struct list_elem* second, void* AUX UN
 {
   struct thread *first_t = list_entry(first, struct thread, elem);
   struct thread *second_t = list_entry(second, struct thread, elem);
-  return (first_t->priority >= second_t->priority);
+  return (first_t->priority > second_t->priority);
 }
 
 /* sort method for thread */
