@@ -31,6 +31,7 @@
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "inttypes.h"
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -51,17 +52,20 @@ sema_init (struct semaphore *sema, unsigned value)
 }
 
 void
-sema_down_with_compare (struct semaphore *sema) 
+sema_down_with_compare (struct semaphore *sema, int64_t ticks) 
 {
-	printf("%s\n", "in sema down with compare");
   enum intr_level old_level;
 
   ASSERT (sema != NULL);
   ASSERT (!intr_context ());
-
+  thread_current()->sleep_time = ticks;
   old_level = intr_disable ();
+  if(sema->value >0){
+	thread_yield();
+  }
   while (sema->value == 0) 
     {
+	
       list_insert_ordered (&sema->waiters, &thread_current ()->elem,
                      (list_less_func*)&compare_thread, NULL);
       thread_block ();
@@ -120,6 +124,26 @@ sema_try_down (struct semaphore *sema)
   return success;
 }
 
+void
+sema_up_with_compare (struct semaphore *sema, int64_t ticks) 
+{
+  enum intr_level old_level;
+
+  ASSERT (sema != NULL);
+  struct thread* t;
+  old_level = intr_disable ();
+
+  if(!list_empty(&sema->waiters)){
+	while(!list_empty(&sema->waiters) && list_entry(list_begin(&sema->waiters), struct thread, elem)->sleep_time <= ticks){
+		t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
+		thread_unblock(t);
+		sema->value++;
+	}
+	
+  }
+   intr_set_level(old_level);
+  
+}
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
    and wakes up one thread of those waiting for SEMA, if any.
 
@@ -132,9 +156,11 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
+  if (!list_empty (&sema->waiters)) {
+	struct thread* t = list_entry (list_pop_front (&sema->waiters),
+                                struct thread, elem);
+    thread_unblock (t);
+	}
   sema->value++;
   intr_set_level (old_level);
 }

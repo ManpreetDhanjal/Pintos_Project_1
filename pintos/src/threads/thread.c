@@ -585,7 +585,7 @@ compare_thread(struct list_elem* first, struct list_elem* second, void* AUX UNUS
 {
 	struct thread *first_t = list_entry(first, struct thread, elem);
 	struct thread *second_t = list_entry(second, struct thread, elem);
-	return first_t->sleep_time < second_t->sleep_time;
+	return (first_t->sleep_time == second_t->sleep_time)?(first_t->priority >= second_t->priority):(first_t->sleep_time <= second_t->sleep_time);
 }
 
 /* Offset of `stack' member within `struct thread'.

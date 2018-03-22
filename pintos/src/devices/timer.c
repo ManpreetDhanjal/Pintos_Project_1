@@ -31,6 +31,7 @@ static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
 static struct semaphore timer_sema; 	/* semaphore for sleep */
+static struct semaphore lock_sema;
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
@@ -40,6 +41,7 @@ timer_init (void)
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
   sema_init(&timer_sema, 0); /*initialise to 0 */
+  sema_init(&lock_sema, 1);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -92,16 +94,10 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-	printf("start:%"PRId64" timer_sleep:%"PRId64"\n", start, ticks);
-	if(ticks > 0){
-		  int64_t sleep_time = start + ticks;
-		  thread_current()->sleep_time = sleep_time;
-		  sema_down_with_compare(&timer_sema);
-	}
-  /*
+  sema_down_with_compare(&timer_sema, ticks+timer_ticks());
+/*
   while (timer_elapsed (start) < ticks) 
     thread_yield ();
 */
@@ -180,20 +176,7 @@ timer_print_stats (void)
 /* to check if any thread can be woken up*/
 void
 wake_up_thread(){
-	struct list* waiters = &(timer_sema.waiters);
-	if(waiters != NULL && list_empty(waiters) == false){
-		
-		struct thread* t = list_entry(list_begin(waiters), struct thread, elem);
-		while(t != NULL && t->sleep_time <= timer_ticks()){
-			sema_up(&timer_sema);
-			waiters = &(timer_sema.waiters);
-			if(list_empty(waiters)==true){
-				break;
-			}
-			t = list_entry(list_begin(waiters), struct thread, elem);	
-		}
-	}
-
+	sema_up_with_compare(&timer_sema, timer_ticks());
 }
 /* Timer interrupt handler. */
 static void

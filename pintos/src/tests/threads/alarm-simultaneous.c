@@ -9,6 +9,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "devices/timer.h"
+#include "inttypes.h"
 
 static void test_sleep (int thread_cnt, int iterations);
 
@@ -82,7 +83,9 @@ sleeper (void *test_)
   int i;
 
   /* Make sure we're at the beginning of a timer tick. */
+  //printf("here1:%d"PRId64"\n",timer_ticks());
   timer_sleep (1);
+  //printf("here2:%d"PRId64"\n",timer_ticks());
 
   for (i = 1; i <= test->iterations; i++) 
     {

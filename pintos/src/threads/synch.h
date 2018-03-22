@@ -16,7 +16,8 @@ void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
-void sema_down_with_compare (struct semaphore *sema) ;
+void sema_down_with_compare (struct semaphore *sema, int64_t ticks) ;
+void sema_up_with_compare (struct semaphore *sema, int64_t ticks);
 
 /* Lock. */
 struct lock 
