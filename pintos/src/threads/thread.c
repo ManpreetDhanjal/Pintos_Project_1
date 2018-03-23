@@ -200,7 +200,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  if(thread_current()->priority >0 && thread_current()->priority < t->priority){
+  if(thread_current()->priority >=0 && thread_current()->priority < t->priority){
 	thread_yield();  
   }
   return tid;
@@ -617,7 +617,7 @@ update_lock_hold_priority(struct thread *lock_holder){
   struct thread* t;
   if(list_empty(&ready_list) == true) return;
   for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)){
-      t = list_entry(e, struct thread, elem);
+      t = list_entry(e, struct thread, allelem);
       if(t->tid == lock_holder->tid){
         list_remove(&t->allelem);
         //printf("LOCK HOLDER ID IS :::: %d\n",lock_holder->tid );
