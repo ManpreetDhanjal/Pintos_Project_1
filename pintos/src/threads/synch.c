@@ -25,7 +25,7 @@
    PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
    MODIFICATIONS.
 */
-
+#include "threads/malloc.h"
 #include "threads/synch.h"
 #include <stdio.h>
 #include <string.h>
@@ -156,17 +156,18 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  struct thread* t = NULL;
+  int thread_priority = -1;
   if (!list_empty (&sema->waiters)) {
-	t = list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem);
-    thread_unblock (t);
-	}
+	struct thread* t = list_entry (list_pop_front (&sema->waiters),struct thread, elem);
+	thread_priority = t->priority;
+    	thread_unblock (t);
+  }
   sema->value++;
   intr_set_level (old_level);
-  if(t != NULL && thread_current()->priority <= t->priority){
+  if(thread_current()->priority < thread_priority){
 	thread_yield();  
   }
+  
 }
 
 static void sema_test_helper (void *sema_);
@@ -245,9 +246,18 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
   
-  if(lock->holder!=NULL && lock->holder->priority>=0 && lock->holder->priority < thread_current()->priority){
+  if(lock->holder!=NULL && lock->holder->priority>0 && lock->holder->priority < thread_current()->priority){
+    // insert in thread priority list
+    struct thread_priority *tp = (struct thread_priority*)malloc(sizeof(struct thread_priority));
+    tp->val = thread_current()->priority;
+
+    list_insert_ordered (&lock->holder->priority_list, &tp->elem,(list_less_func*)&compare_priority_elem, NULL);
+    int xx = list_size(&lock->holder->priority_list);
+    printf("inserted %zd\n", xx);
     int priority = lock->holder->priority;
-    lock->holder->origPriority = priority; 
+    if(lock->holder->origPriority == -1){
+    	lock->holder->origPriority = priority; 
+    }
     lock->holder->priority = thread_current()->priority;
     update_lock_hold_priority(lock->holder);
   }
@@ -285,11 +295,50 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
-  if(thread_current()->origPriority != -1){
-     thread_current()->priority = thread_current()->origPriority ;
-     thread_current()->origPriority  = -1;
+
+  // when thread's priority list is empty, rever to original
+  if(!list_empty(&thread_current()->priority_list)){
+       	struct list* priority_list = &thread_current()->priority_list;
+ 	struct list waiter_list = lock->semaphore.waiters;
+	// get first waiter of lock
+   	//printf("list size:%d\n", list_size(&waiter_list));
+     	struct thread* waiter = list_entry(list_begin(&waiter_list),struct thread, elem);
+	int highest_waiter_priority = waiter->priority;
+
+        //int highest_waiter_priority = list_entry(list_begin(&waiter_list), struct thread, elem)->priority;
+	//printf("pp:%d\n", highest_waiter_priority);
+	if(thread_current()->priority == highest_waiter_priority){ // if loc
+		// pop lock holder from thread priority list
+		list_pop_front(priority_list);
+	}else{
+     		// loop over the list to remove the thread
+		struct list_elem* e;
+		int xx = list_size(&thread_current()->priority_list);
+		printf("size:%zd\n", xx);
+		for (e = list_begin(priority_list); e != list_end(priority_list); e = list_next(e)){
+			struct thread_priority *tp = list_entry(e, struct thread_priority, elem);
+ 			
+			if(thread_current()->priority == tp->val){
+				//printf("curr:%d tp:%d\n", thread_current()->priority, tp->val);
+				list_remove(&tp->elem);	
+				break;		
+			}
+		}
+	}
+	// get the new priority, the thread at the front of the list
+	if(list_empty(&thread_current()->priority_list)){
+		//printf("here\n");
+		thread_current()->priority = thread_current()->origPriority;
+		thread_current()->origPriority = -1;
+	}else{
+		struct thread_priority* tp = list_entry(list_begin(priority_list), struct thread_priority, elem);	
+		thread_current()->priority = tp->val;
+		//printf("p in else %d\n", tp->val);
+	}
+	//printf("dd%d\n", thread_current()->priority);
   }
   lock->holder = NULL;
+  
   sema_up (&lock->semaphore);
 }
 

@@ -38,11 +38,11 @@ test_priority_donate_multiple (void)
   thread_create ("a", PRI_DEFAULT + 1, a_thread_func, &a);
   msg ("Main thread should have priority %d.  Actual priority: %d.",
        PRI_DEFAULT + 1, thread_get_priority ());
-
+  printf("main1:%zd\n", list_size(&thread_current()->priority_list));
   thread_create ("b", PRI_DEFAULT + 2, b_thread_func, &b);
   msg ("Main thread should have priority %d.  Actual priority: %d.",
        PRI_DEFAULT + 2, thread_get_priority ());
-
+  printf("main2:%zd\n", list_size(&thread_current()->priority_list));
   lock_release (&b);
   msg ("Thread b should have just finished.");
   msg ("Main thread should have priority %d.  Actual priority: %d.",

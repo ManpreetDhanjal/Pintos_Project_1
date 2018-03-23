@@ -92,7 +92,6 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -242,11 +241,6 @@ thread_unblock (struct thread *t)
   list_insert_ordered (&ready_list, &t->elem,(list_less_func*)&compare_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
-  /*
-  if(thread_current()->priority >0 && thread_current()->priority < t->priority){
-	thread_yield();  
-  }
-*/
 }
 
 /* Returns the name of the running thread. */
@@ -478,6 +472,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   t->origPriority = -1;
+  list_init(&t->priority_list);  
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -611,6 +606,13 @@ compare_thread(struct list_elem* first, struct list_elem* second, void* AUX UNUS
 	return (first_t->sleep_time == second_t->sleep_time)?(first_t->priority >= second_t->priority):(first_t->sleep_time <= second_t->sleep_time);
 }
 
+// comparison in priority list of thread
+bool compare_priority_elem(struct list_elem* first, struct list_elem* second, void* AUX UNUSED)
+{
+	struct thread_priority *first_t = list_entry(first, struct thread_priority, elem);
+	struct thread_priority *second_t = list_entry(second, struct thread_priority, elem);
+	return (first_t->val > second_t->val);
+}
 void 
 update_lock_hold_priority(struct thread *lock_holder){
   struct list_elem *e;
@@ -618,9 +620,9 @@ update_lock_hold_priority(struct thread *lock_holder){
   if(list_empty(&ready_list) == true) return;
   for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)){
       t = list_entry(e, struct thread, allelem);
+      
       if(t->tid == lock_holder->tid){
         list_remove(&t->allelem);
-        //printf("LOCK HOLDER ID IS :::: %d\n",lock_holder->tid );
         list_insert_ordered (&ready_list, &lock_holder->elem,(list_less_func*)&compare_priority, NULL);
         break;
       }
