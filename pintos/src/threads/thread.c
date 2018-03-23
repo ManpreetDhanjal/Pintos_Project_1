@@ -200,7 +200,9 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+  if(thread_current()->priority >0 && thread_current()->priority < t->priority){
+	thread_yield();  
+  }
   return tid;
 }
 
@@ -237,11 +239,14 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //list_push_back (&ready_list, &t->elem);
-  list_insert_ordered (&ready_list, &t->elem,
-                     (list_less_func*)&compare_priority, NULL);
+  list_insert_ordered (&ready_list, &t->elem,(list_less_func*)&compare_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+  /*
+  if(thread_current()->priority >0 && thread_current()->priority < t->priority){
+	thread_yield();  
+  }
+*/
 }
 
 /* Returns the name of the running thread. */
@@ -340,7 +345,11 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  int old_priority = thread_current()->priority;
   thread_current ()->priority = new_priority;
+  if(old_priority > new_priority){
+	thread_yield();
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -611,7 +620,7 @@ update_lock_hold_priority(struct thread *lock_holder){
       t = list_entry(e, struct thread, elem);
       if(t->tid == lock_holder->tid){
         list_remove(&t->allelem);
-        printf("LOCK HOLDER ID IS :::: %d\n",lock_holder->tid );
+        //printf("LOCK HOLDER ID IS :::: %d\n",lock_holder->tid );
         list_insert_ordered (&ready_list, &lock_holder->elem,(list_less_func*)&compare_priority, NULL);
         break;
       }
