@@ -619,10 +619,10 @@ update_lock_hold_priority(struct thread *lock_holder){
   struct thread* t;
   if(list_empty(&ready_list) == true) return;
   for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)){
-      t = list_entry(e, struct thread, allelem);
+      t = list_entry(e, struct thread, elem);
       
       if(t->tid == lock_holder->tid){
-        list_remove(&t->allelem);
+        list_remove(&t->elem);
         list_insert_ordered (&ready_list, &lock_holder->elem,(list_less_func*)&compare_priority, NULL);
         break;
       }

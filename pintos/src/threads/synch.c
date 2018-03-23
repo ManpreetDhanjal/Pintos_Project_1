@@ -250,10 +250,9 @@ lock_acquire (struct lock *lock)
     // insert in thread priority list
     struct thread_priority *tp = (struct thread_priority*)malloc(sizeof(struct thread_priority));
     tp->val = thread_current()->priority;
-
-    list_insert_ordered (&lock->holder->priority_list, &tp->elem,(list_less_func*)&compare_priority_elem, NULL);
     int xx = list_size(&lock->holder->priority_list);
-    printf("inserted %zd\n", xx);
+    list_insert_ordered (&lock->holder->priority_list, &tp->elem,(list_less_func*)&compare_priority_elem, NULL);
+    
     int priority = lock->holder->priority;
     if(lock->holder->origPriority == -1){
     	lock->holder->origPriority = priority; 
@@ -301,41 +300,34 @@ lock_release (struct lock *lock)
        	struct list* priority_list = &thread_current()->priority_list;
  	struct list waiter_list = lock->semaphore.waiters;
 	// get first waiter of lock
-   	//printf("list size:%d\n", list_size(&waiter_list));
      	struct thread* waiter = list_entry(list_begin(&waiter_list),struct thread, elem);
 	int highest_waiter_priority = waiter->priority;
 
-        //int highest_waiter_priority = list_entry(list_begin(&waiter_list), struct thread, elem)->priority;
-	//printf("pp:%d\n", highest_waiter_priority);
-	if(thread_current()->priority == highest_waiter_priority){ // if loc
-		// pop lock holder from thread priority list
-		list_pop_front(priority_list);
-	}else{
-     		// loop over the list to remove the thread
-		struct list_elem* e;
-		int xx = list_size(&thread_current()->priority_list);
-		printf("size:%zd\n", xx);
-		for (e = list_begin(priority_list); e != list_end(priority_list); e = list_next(e)){
-			struct thread_priority *tp = list_entry(e, struct thread_priority, elem);
- 			
-			if(thread_current()->priority == tp->val){
-				//printf("curr:%d tp:%d\n", thread_current()->priority, tp->val);
-				list_remove(&tp->elem);	
-				break;		
+	if(!list_empty(&lock->semaphore.waiters)){
+		if(thread_current()->priority == highest_waiter_priority){ // if loc
+			// pop lock holder from thread priority list
+			list_pop_front(priority_list);
+		}else{
+	     		// loop over the list to remove the thread
+			struct list_elem* e;
+			for (e = list_begin(priority_list); e != list_end(priority_list); e = list_next(e)){
+				struct thread_priority *tp = list_entry(e, struct thread_priority, elem);
+	 			
+				if(thread_current()->priority == tp->val){
+					list_remove(&tp->elem);	
+					break;		
+				}
 			}
 		}
+		// get the new priority, the thread at the front of the list
+		if(list_empty(&thread_current()->priority_list)){
+			thread_current()->priority = thread_current()->origPriority;
+			thread_current()->origPriority = -1;
+		}else{
+			struct thread_priority* tp = list_entry(list_begin(priority_list), struct thread_priority, elem);	
+			thread_current()->priority = tp->val;
+		}
 	}
-	// get the new priority, the thread at the front of the list
-	if(list_empty(&thread_current()->priority_list)){
-		//printf("here\n");
-		thread_current()->priority = thread_current()->origPriority;
-		thread_current()->origPriority = -1;
-	}else{
-		struct thread_priority* tp = list_entry(list_begin(priority_list), struct thread_priority, elem);	
-		thread_current()->priority = tp->val;
-		//printf("p in else %d\n", tp->val);
-	}
-	//printf("dd%d\n", thread_current()->priority);
   }
   lock->holder = NULL;
   
@@ -428,7 +420,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
     struct semaphore_elem *curr_ele;
     struct list sema_list;
     struct thread *t;
-    struct semaphore_elem *higher_priority_waiter;
+    struct semaphore_elem *higher_priority_waiter = NULL;
     int maxPriority = -1;
     
     for (e = list_begin (&cond->waiters); e != list_end (&cond->waiters); e = list_next (e)){
