@@ -101,6 +101,7 @@ struct thread
 
     int64_t sleep_time; 		/* the time to wakeup */
     struct list priority_list;		/* list to track priority donations */
+    struct thread* donee;		/* thread to which the priority was donated */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

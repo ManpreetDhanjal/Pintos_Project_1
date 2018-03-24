@@ -340,10 +340,15 @@ void
 thread_set_priority (int new_priority) 
 {
   int old_priority = thread_current()->priority;
-  thread_current ()->priority = new_priority;
-  if(old_priority > new_priority){
-	thread_yield();
+  if(thread_current()->origPriority == -1){
+  	thread_current ()->priority = new_priority;
+      	 if(old_priority > new_priority){
+		thread_yield();
+  	}
+  }else{
+	thread_current()->origPriority = new_priority;
   }
+ 
 }
 
 /* Returns the current thread's priority. */
@@ -473,6 +478,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
   t->origPriority = -1;
   list_init(&t->priority_list);  
+  t->donee = NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

@@ -279,20 +279,24 @@ lock_acquire (struct lock *lock)
 			}
 		}
    	 }
-     //insert the new highest waiter
-     struct thread_priority *tp = (struct thread_priority*)malloc(sizeof(struct thread_priority));
-     tp->val = thread_current()->priority;
-     int xx = list_size(&lock->holder->priority_list);
-    list_insert_ordered (&lock->holder->priority_list, &tp->elem,(list_less_func*)&compare_priority_elem, NULL);
-    int priority = lock->holder->priority;
-    if(lock->holder->origPriority == -1){
-    	lock->holder->origPriority = priority; 
-    }
-    lock->holder->priority = thread_current()->priority;
-    update_lock_hold_priority(lock->holder);
+     	//insert the new highest waiter
+     	struct thread_priority *tp = (struct thread_priority*)malloc(sizeof(struct thread_priority));
+     	tp->val = thread_current()->priority;
+    	list_insert_ordered (&lock->holder->priority_list, &tp->elem,(list_less_func*)&compare_priority_elem, NULL);
+    	int priority = lock->holder->priority;
+    	if(lock->holder->origPriority == -1){
+    		lock->holder->origPriority = priority; 
+    	}
+    	lock->holder->priority = thread_current()->priority;
+    	thread_current()->donee = lock->holder;
+	if(lock->holder->status == THREAD_BLOCKED && lock->holder->donee != NULL){
+		lock->holder->donee->priority = thread_current()->priority;
+	}
+	update_lock_hold_priority(lock->holder);
     }
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  thread_current()->donee = NULL;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
