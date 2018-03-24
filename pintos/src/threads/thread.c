@@ -127,9 +127,16 @@ thread_tick (void)
 {
   struct thread *t = thread_current ();
   total_ticks++;
-  if(total_ticks % 100 == 0){
-    thread_set_load_average();
+  if(thread_mlfqs){
+    if(thread_current() != idle_thread){
+      thread_current()->recent_cpu = add_FP_and_int_numbers(thread_current()->recent_cpu,1);
+    }
+    if(total_ticks % 100 == 0){
+      thread_set_load_average();
+      thread_set_recent_cpu();
+    }
   }
+  
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -141,8 +148,14 @@ thread_tick (void)
     kernel_ticks++;
 
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
+  if (++thread_ticks >= TIME_SLICE){
     intr_yield_on_return ();
+    if(thread_mlfqs){
+      recalc_priority();
+    }
+
+  }
+    
 }
 
 /* Prints thread statistics. */
@@ -347,15 +360,26 @@ void
 thread_set_priority (int new_priority) 
 {
   int old_priority = thread_current()->priority;
-  if(thread_current()->origPriority == -1){
-  	thread_current ()->priority = new_priority;
-      	 if(old_priority > new_priority){
-		thread_yield();
-  	}
-  }else{
-	thread_current()->origPriority = new_priority;
+  if(!thread_mlfqs){
+    if(thread_current()->origPriority == -1){
+      thread_current ()->priority = new_priority;
+           if(old_priority > new_priority){
+      thread_yield();
+      }
+    }else{
+       thread_current()->origPriority = new_priority;
+    }
   }
- 
+}
+/*recalculates the priority of every thread after 4 ticks*/
+void recalc_priority(void){
+  struct list_elem *e;
+  struct thread *t;
+  
+  for (e = list_begin (&all_list); e != list_end (&all_list);e = list_next (e)){
+    t = list_entry(e,struct thread,allelem);
+    t->priority = PRI_MAX - convert_FP_to_integer(add_FP_and_int_numbers((t->recent_cpu/4) , (t->nice * 2)));
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -367,8 +391,9 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
+  thread_current()->nice = nice;
   /* Not yet implemented. */
 }
 
@@ -377,12 +402,17 @@ int
 thread_get_nice (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
-
+ 
+/*sets the load_average of cpu*/
 void thread_set_load_average(void){
   int prod = mul_FP_and_int_numbers(load_average, 59);
-  int sum = add_FP_and_int_numbers(prod, list_size(&ready_list)+1);
+  int readyList = list_size(&ready_list);
+  if(thread_current() != idle_thread){
+    readyList += 1;
+  }
+  int sum = add_FP_and_int_numbers(prod, readyList);
   load_average = div_FP_and_int_numbers(sum, 60);
 }
 
@@ -393,13 +423,23 @@ thread_get_load_avg (void)
   /* Not yet implemented. */
   return convert_FP_to_integer(mul_FP_and_int_numbers(load_average,100));
 }
+/*sets the recent_cpu usage of every thread*/
+void thread_set_recent_cpu(void){
+  struct list_elem *e;
+  struct thread *t;
+  int load_val = div_FP_numbers((2 * load_average),(add_FP_and_int_numbers(2*load_average , 1)));
+  for (e = list_begin (&all_list); e != list_end (&all_list);e = list_next (e)){
+    t = list_entry(e,struct thread,allelem);
+    t->recent_cpu =  add_FP_and_int_numbers(mul_FP_numbers(load_val,t->recent_cpu),t->nice);
+  }
+}
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return convert_FP_to_integer(thread_current()->recent_cpu * 100);
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -492,7 +532,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->origPriority = -1;
   list_init(&t->priority_list);  
   t->donee = NULL;
-
+  t->nice = 0;
+  t->recent_cpu = 0;
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);

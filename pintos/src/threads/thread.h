@@ -102,6 +102,8 @@ struct thread
     int64_t sleep_time; 		/* the time to wakeup */
     struct list priority_list;		/* list to track priority donations */
     struct thread* donee;		/* thread to which the priority was donated */
+    int nice; /*sets the nice value of thread*/
+    int recent_cpu;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -147,6 +149,10 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void recalc_priority(void);
+void thread_set_load_average(void);
+void thread_set_recent_cpu(void);
 
 bool compare_thread(struct list_elem* first, struct list_elem* second, void* AUX);
 bool compare_priority(struct list_elem* first, struct list_elem* second, void* AUX UNUSED);
