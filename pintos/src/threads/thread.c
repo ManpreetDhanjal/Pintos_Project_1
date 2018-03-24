@@ -54,6 +54,7 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
+static unsigned total_ticks;   /* # of timer ticks since last yield. */
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -71,6 +72,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+
+static int load_average = 0;
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -123,7 +126,10 @@ void
 thread_tick (void) 
 {
   struct thread *t = thread_current ();
-
+  total_ticks++;
+  if(total_ticks % 100 == 0){
+    thread_set_load_average();
+  }
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -374,12 +380,22 @@ thread_get_nice (void)
   return 0;
 }
 
+void thread_set_load_average(void){
+  printf("SIZE OF READY LIST %d\n", list_size(&ready_list));
+  load_average = div_FP_and_int_numbers(convert_to_fixed_point(59 * load_average + list_size(&ready_list) + 1),60);
+  // load_average = add_FP_numbers(mul_FP_and_int_numbers(convert_to_fixed_point(59/60),load_average) , mul_FP_and_int_numbers(convert_to_fixed_point(1/60) , list_size(&ready_list)));
+  
+  printf("\nset load avg is %d\n",load_average );
+  load_average = convert_FP_to_integer(load_average);
+}
+
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  
+  return 100 * load_average;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
