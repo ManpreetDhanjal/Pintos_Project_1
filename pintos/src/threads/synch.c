@@ -243,6 +243,12 @@ lock_init (struct lock *lock)
   sema_init (&lock->semaphore, 1);
 }
 
+void donate_nested_priority(struct thread* lock_holder){
+	if(lock_holder->status == THREAD_BLOCKED && lock_holder->donee != NULL){
+		lock_holder->donee->priority = thread_current()->priority;
+		donate_nested_priority(lock_holder->donee);
+	}
+}
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
    thread.
@@ -258,7 +264,7 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
   
-  if(lock->holder!=NULL && lock->holder->priority>0 && lock->holder->priority <= thread_current()->priority){
+  if(lock->holder!=NULL && lock->holder->priority>=0 && lock->holder->priority <= thread_current()->priority){
     // insert in thread priority list
     //check if the waiter list is not empty
     //if it is not empty, fetch the highest waiter priority
@@ -289,9 +295,8 @@ lock_acquire (struct lock *lock)
     	}
     	lock->holder->priority = thread_current()->priority;
     	thread_current()->donee = lock->holder;
-	if(lock->holder->status == THREAD_BLOCKED && lock->holder->donee != NULL){
-		lock->holder->donee->priority = thread_current()->priority;
-	}
+	donate_nested_priority(lock->holder);
+	
 	update_lock_hold_priority(lock->holder);
     }
   sema_down (&lock->semaphore);
