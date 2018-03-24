@@ -381,12 +381,9 @@ thread_get_nice (void)
 }
 
 void thread_set_load_average(void){
-  printf("SIZE OF READY LIST %d\n", list_size(&ready_list));
-  load_average = div_FP_and_int_numbers(convert_to_fixed_point(59 * load_average + list_size(&ready_list) + 1),60);
-  // load_average = add_FP_numbers(mul_FP_and_int_numbers(convert_to_fixed_point(59/60),load_average) , mul_FP_and_int_numbers(convert_to_fixed_point(1/60) , list_size(&ready_list)));
-  
-  printf("\nset load avg is %d\n",load_average );
-  load_average = convert_FP_to_integer(load_average);
+  int prod = mul_FP_and_int_numbers(load_average, 59);
+  int sum = add_FP_and_int_numbers(prod, list_size(&ready_list)+1);
+  load_average = div_FP_and_int_numbers(sum, 60);
 }
 
 /* Returns 100 times the system load average. */
@@ -394,8 +391,7 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  
-  return 100 * load_average;
+  return convert_FP_to_integer(mul_FP_and_int_numbers(load_average,100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
