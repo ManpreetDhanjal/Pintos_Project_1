@@ -157,8 +157,20 @@ sema_up (struct semaphore *sema)
 
   old_level = intr_disable ();
   int thread_priority = -1;
+  //
   if (!list_empty (&sema->waiters)) {
-	struct thread* t = list_entry (list_pop_front (&sema->waiters),struct thread, elem);
+  	//unblock highest priority thread via looping
+  	int max_priority=-1;
+  	struct thread* t;
+  	struct list_elem* e;
+        for (e = list_begin (&sema->waiters); e != list_end (&sema->waiters); e = list_next (e)){
+           struct thread* temp = list_entry(e, struct thread, elem);
+           if(temp->priority> max_priority){
+                 max_priority=temp->priority;
+                 t=temp;
+           }
+        }
+        list_remove(&t->elem);
 	thread_priority = t->priority;
     	thread_unblock (t);
   }
@@ -246,20 +258,39 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
   
-  if(lock->holder!=NULL && lock->holder->priority>0 && lock->holder->priority < thread_current()->priority){
+  if(lock->holder!=NULL && lock->holder->priority>0 && lock->holder->priority <= thread_current()->priority){
     // insert in thread priority list
-    struct thread_priority *tp = (struct thread_priority*)malloc(sizeof(struct thread_priority));
-    tp->val = thread_current()->priority;
-    int xx = list_size(&lock->holder->priority_list);
+    //check if the waiter list is not empty
+    //if it is not empty, fetch the highest waiter priority
+    //printf("THREAD WITH TID :: %d WTAL ::\n",thread_current()->priority);
+    if(!list_empty(&lock->semaphore.waiters)){
+        struct list waiter_list = lock->semaphore.waiters;
+	struct thread* waiter = list_entry(list_begin(&waiter_list),struct thread, elem);
+	int highest_waiter_priority = waiter->priority;
+	//remove this waiter from the priority list
+	struct list* priority_list = &lock->holder->priority_list;
+	//traverse the PL and remove
+	struct list_elem* e;
+	for (e = list_begin(priority_list); e != list_end(priority_list); e = list_next(e)){
+		struct thread_priority *tp = list_entry(e, struct thread_priority, elem);
+			if(highest_waiter_priority == tp->val){
+			    list_remove(&tp->elem);	
+			    break;		
+			}
+		}
+   	 }
+     //insert the new highest waiter
+     struct thread_priority *tp = (struct thread_priority*)malloc(sizeof(struct thread_priority));
+     tp->val = thread_current()->priority;
+     int xx = list_size(&lock->holder->priority_list);
     list_insert_ordered (&lock->holder->priority_list, &tp->elem,(list_less_func*)&compare_priority_elem, NULL);
-    
     int priority = lock->holder->priority;
     if(lock->holder->origPriority == -1){
     	lock->holder->origPriority = priority; 
     }
     lock->holder->priority = thread_current()->priority;
     update_lock_hold_priority(lock->holder);
-  }
+    }
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -313,7 +344,7 @@ lock_release (struct lock *lock)
 			for (e = list_begin(priority_list); e != list_end(priority_list); e = list_next(e)){
 				struct thread_priority *tp = list_entry(e, struct thread_priority, elem);
 	 			
-				if(thread_current()->priority == tp->val){
+				if(highest_waiter_priority == tp->val){
 					list_remove(&tp->elem);	
 					break;		
 				}
