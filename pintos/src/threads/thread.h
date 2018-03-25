@@ -154,7 +154,6 @@ void recalc_priority(void);
 void thread_set_load_average(void);
 void thread_set_recent_cpu(void);
 
-bool compare_thread(struct list_elem* first, struct list_elem* second, void* AUX);
 bool compare_priority(struct list_elem* first, struct list_elem* second, void* AUX UNUSED);
 bool compare_priority_elem(struct list_elem* first, struct list_elem* second, void* AUX UNUSED);
 void update_lock_hold_priority(struct thread *lock_holder);

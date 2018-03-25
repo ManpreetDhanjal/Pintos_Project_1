@@ -30,7 +30,9 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
-static struct semaphore timer_sema; 	/* semaphore for sleep */
+static struct list timer_list;
+
+//static struct semaphore timer_sema; 	/* semaphore for sleep */
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
@@ -39,7 +41,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  sema_init(&timer_sema, 0); /*initialise to 0 */
+  //sema_init(&timer_sema, 0); /*initialise to 0 */
+  list_init(&timer_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -94,11 +97,12 @@ timer_sleep (int64_t ticks)
 {
 
   ASSERT (intr_get_level () == INTR_ON);
-  sema_down_with_compare(&timer_sema, ticks+timer_ticks());
-/*
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
-*/
+
+  struct timer_node* tn = (struct timer_node*)malloc(sizeof(struct timer_node));
+  tn->wake_up_time = ticks+timer_ticks();
+  sema_init(&tn->sema,0);
+  list_insert_ordered (&timer_list, &tn->elem,(list_less_func*)compare_timer_nodes, NULL);
+  sema_down(&tn->sema);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -174,8 +178,18 @@ timer_print_stats (void)
 /* to check if any thread can be woken up*/
 void
 wake_up_thread(){
-	sema_up_with_compare(&timer_sema, timer_ticks());
+	int64_t time = timer_ticks();
+	struct timer_node* tn;
+	if(!list_empty(&timer_list)){
+	  	while(!list_empty(&timer_list) && list_entry(list_begin(&timer_list), struct timer_node, elem)->wake_up_time <= time){
+	  		tn = list_entry(list_pop_front(&timer_list), struct timer_node, elem);
+			sema_up(&tn->sema);
+	  	}
+	
+  	}
 }
+
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
@@ -256,3 +270,14 @@ real_time_delay (int64_t num, int32_t denom)
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
 }
+
+/* sort method for timer nodes */
+bool
+compare_timer_nodes(struct list_elem* first, struct list_elem* second, void* AUX UNUSED)
+{
+  struct timer_node *first_t = list_entry(first, struct timer_node, elem);
+  struct timer_node *second_t = list_entry(second, struct timer_node, elem);
+  return first_t->wake_up_time <= second_t->wake_up_time;
+}
+
+

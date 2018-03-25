@@ -12,6 +12,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "fixed-point-numbers.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -132,10 +133,14 @@ thread_tick (void)
       thread_current()->recent_cpu = add_FP_and_int_numbers(thread_current()->recent_cpu , 1);
       
     }
-    if(total_ticks % 100 == 0){
+    if(total_ticks % TIMER_FREQ == 0){
       thread_set_load_average();
       thread_set_recent_cpu();
     }
+    if(total_ticks % 4 == 0){
+	recalc_priority();
+    }
+
   }
   
   /* Update statistics. */
@@ -151,10 +156,6 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE){
     intr_yield_on_return ();
-
-    if(thread_mlfqs){
-      recalc_priority();
-    }
 
   }
     
@@ -377,8 +378,6 @@ thread_set_priority (int new_priority)
     }else{
        thread_current()->origPriority = new_priority;
     }
-  }else{
-    thread_current ()->priority = new_priority;
   }
 }
 /*recalculates the priority of every thread after 4 ticks*/
@@ -406,13 +405,14 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice) 
 {
+  //enum intr_level old = intr_disable();
   thread_current()->nice = nice;
   thread_current()->priority = PRI_MAX - convert_FP_to_integer(add_FP_and_int_numbers((thread_current()->recent_cpu/4) , (thread_current()->nice * 2)));
   list_sort (&ready_list, (list_less_func*)&compare_priority, NULL);
   if(list_entry(list_begin(&ready_list),struct thread , elem)->priority > thread_current()->priority){
     thread_yield();
   }
-
+  //intr_set_level(old);
   /* Not yet implemented. */
 }
 
@@ -680,15 +680,6 @@ compare_priority(struct list_elem* first, struct list_elem* second, void* AUX UN
   struct thread *first_t = list_entry(first, struct thread, elem);
   struct thread *second_t = list_entry(second, struct thread, elem);
   return (first_t->priority > second_t->priority);
-}
-
-/* sort method for thread */
-bool
-compare_thread(struct list_elem* first, struct list_elem* second, void* AUX UNUSED)
-{
-  struct thread *first_t = list_entry(first, struct thread, elem);
-  struct thread *second_t = list_entry(second, struct thread, elem);
-  return (first_t->sleep_time == second_t->sleep_time)?(first_t->priority >= second_t->priority):(first_t->sleep_time <= second_t->sleep_time);
 }
 
 // comparison in priority list of thread

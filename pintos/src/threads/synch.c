@@ -51,28 +51,6 @@ sema_init (struct semaphore *sema, unsigned value)
   list_init (&sema->waiters);
 }
 
-void
-sema_down_with_compare (struct semaphore *sema, int64_t ticks) 
-{
-  enum intr_level old_level;
-
-  ASSERT (sema != NULL);
-  ASSERT (!intr_context ());
-  thread_current()->sleep_time = ticks;
-  old_level = intr_disable ();
-  if(sema->value >0){
-	thread_yield();
-  }
-  while (sema->value == 0) 
-    {
-	
-      list_insert_ordered (&sema->waiters, &thread_current ()->elem,
-                     (list_less_func*)&compare_thread, NULL);
-      thread_block ();
-    }
-  sema->value--;
-  intr_set_level (old_level);
-}
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 
@@ -124,26 +102,6 @@ sema_try_down (struct semaphore *sema)
   return success;
 }
 
-void
-sema_up_with_compare (struct semaphore *sema, int64_t ticks) 
-{
-  enum intr_level old_level;
-
-  ASSERT (sema != NULL);
-  struct thread* t;
-  old_level = intr_disable ();
-
-  if(!list_empty(&sema->waiters)){
-  	while(!list_empty(&sema->waiters) && list_entry(list_begin(&sema->waiters), struct thread, elem)->sleep_time <= ticks){
-  		t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
-  		thread_unblock(t);
-  		sema->value++;
-  	}
-	
-  }
-   intr_set_level(old_level);
-  
-}
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
    and wakes up one thread of those waiting for SEMA, if any.
 
@@ -161,7 +119,7 @@ sema_up (struct semaphore *sema)
   if (!list_empty (&sema->waiters)) {
   	//unblock highest priority thread via looping
   	int max_priority=-1;
-  	struct thread* t;
+  	struct thread* t = list_entry(list_begin (&sema->waiters), struct thread, elem);;
   	struct list_elem* e;
         for (e = list_begin (&sema->waiters); e != list_end (&sema->waiters); e = list_next (e)){
            struct thread* temp = list_entry(e, struct thread, elem);
@@ -176,7 +134,8 @@ sema_up (struct semaphore *sema)
   }
   sema->value++;
   intr_set_level (old_level);
-  if(thread_current()->priority < thread_priority){
+ 
+  if(!intr_context () && thread_current()->priority < thread_priority){
 	thread_yield();  
   }
   
